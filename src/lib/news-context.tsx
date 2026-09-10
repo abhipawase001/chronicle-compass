@@ -139,12 +139,12 @@ const originals: { date: string; source: string; language: string; text: string 
 ];
 
 function buildResults(query: string, language: string): TimelineItem[] {
-  const pool = summariesByLanguage[language] ?? summariesByLanguage.English;
+  const pool = summariesByLanguage[language] ?? summariesByLanguage["English"] ?? [];
   return originals.map((o, i) => ({
     id: `t${i + 1}`,
     date: o.date,
     source: o.source,
-    translatedSummary: `${pool[i % pool.length]} (${query})`,
+    translatedSummary: `${pool[i % pool.length] ?? ""} (${query})`,
     originalText: o.text,
     originalLanguage: o.language,
   }));
