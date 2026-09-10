@@ -1,29 +1,52 @@
-# Welcome to your Lovable project
+# News Chronicle AI
 
-This project was built with [Lovable](https://lovable.dev).
+An intelligent multilingual newspaper analysis and entity-tracking platform. Upload scanned newspapers (OCR), then search for a name or entity and view results on a timeline with summaries in the language of your choice.
 
-## Build with Lovable
+Built with React 19, TanStack Start, Tailwind CSS v4, and shadcn/ui.
 
-Open your project in the [Lovable editor](https://lovable.dev) and keep building.
+## Run locally in VS Code
 
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: connect the project to GitHub and every change made in Lovable is committed straight to your repository.
-- **Full ownership**: this code is yours. Push to your repository and your changes sync back into Lovable, ready for your next prompt.
+### Requirements
 
-## Development
+- **Node.js 20.19+ or 22.12+** — install with [nvm](https://github.com/nvm-sh/nvm#installing-and-updating) (`nvm install 22`)
+- npm (comes with Node)
 
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
+### Steps
 
 ```sh
-git clone <this-repository-url>
+# 1. Get the code
+git clone <your-repository-url>
 cd <repository-name>
-npm i
+
+# 2. Install dependencies
+npm install
+
+# 3. Start the dev server
 npm run dev
 ```
 
-## Built with
+Then open **http://localhost:8080** in your browser. Edits you make in VS Code hot-reload automatically.
 
-- TanStack Start
-- TypeScript
-- React
-- Tailwind CSS
+### Other commands
+
+```sh
+npm run build      # production build
+npm run preview    # preview the production build
+npm run lint       # run ESLint
+npm run format     # format with Prettier
+```
+
+### Project structure
+
+```text
+src/
+  routes/            Pages: / (Uploads), /search, /settings
+  components/        Sidebar, language modal, UI primitives
+  lib/news-context.tsx   App state: uploaded files, search, timeline results
+  styles.css         Theme tokens (slate + indigo palette)
+```
+
+## Notes
+
+- No backend or environment variables are required — the app runs with built-in sample data.
+- To keep editing in Lovable, connect the project to GitHub; changes sync both ways.
