@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import { extractEntitiesAndDates, extractArticlesFromText } from "./entity-extraction";
 
 export type DocStatus = "pending" | "extracting" | "ready" | "failed";
 
@@ -81,7 +82,7 @@ export function NewsProvider({ children }: { children: ReactNode }) {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
-  // Simulate document processing
+  // Simulate document processing with real entity extraction
   const addFiles = useCallback(async (files: File[]) => {
     setIsUploading(true);
     setUploadError(null);
@@ -103,70 +104,106 @@ export function NewsProvider({ children }: { children: ReactNode }) {
         
         setUploadedFiles((prev) => [newDoc, ...prev]);
 
-        // Simulate extraction with progress
+        // Detect language from filename
+        const detectedLanguage = /hindi|हिन्दी|मराठी|marathi|ગુજરાતી|gujarati/i.test(file.name) 
+          ? /मराठी|marathi/i.test(file.name) ? "Marathi"
+          : /hindi|हिन्दी/i.test(file.name) ? "Hindi"
+          : /gujarati|ગુજરાતી/i.test(file.name) ? "Gujarati"
+          : "English"
+          : "English";
+
+        // Simulate file reading and text extraction
         let progress = 0;
-        const interval = setInterval(() => {
-          progress += Math.random() * 25;
+        const interval = setInterval(async () => {
+          progress += Math.random() * 15;
+          
           if (progress >= 100) {
             progress = 100;
             clearInterval(interval);
             
-            // Detect language from filename
-            const detectedLanguage = /hindi|हिन्दी|मराठी|marathi|ગુજરાતી|gujarati/i.test(file.name) 
-              ? /मराठी|marathi/i.test(file.name) ? "Marathi"
-              : /hindi|हिन्दी/i.test(file.name) ? "Hindi"
-              : /gujarati|ગુજરાતી/i.test(file.name) ? "Gujarati"
-              : "English"
-              : "English";
-            
-            setUploadedFiles((prev) =>
-              prev.map((d) =>
-                d.id === docId
-                  ? {
-                      ...d,
-                      status: "ready",
-                      progress: 100,
-                      language: detectedLanguage,
-                      articleCount: 3,
-                    }
-                  : d
-              )
-            );
-            
-            // Simulate articles being extracted
-            const mockArticles: Article[] = [
-              {
-                id: `art-${docId}-1`,
-                documentId: docId,
-                headline: "Breaking News Report",
-                date: new Date().toISOString().slice(0, 10),
-                source: file.name,
-                originalText: "This is the first article extracted from the newspaper. It contains important information about recent events and developments.",
-                originalLanguage: detectedLanguage,
-                entities: ["news", "report", "events"],
-              },
-              {
-                id: `art-${docId}-2`,
-                documentId: docId,
-                headline: "Analysis and Commentary",
-                date: new Date(Date.now() - 86400000).toISOString().slice(0, 10),
-                source: file.name,
-                originalText: "An in-depth analysis of the current situation with expert commentary and historical context.",
-                originalLanguage: detectedLanguage,
-                entities: ["analysis", "commentary", "expert"],
-              },
-              {
-                id: `art-${docId}-3`,
-                documentId: docId,
-                headline: "Market Updates",
-                date: new Date(Date.now() - 172800000).toISOString().slice(0, 10),
-                source: file.name,
-                originalText: "Latest market data and economic indicators showing significant changes in key sectors.",
-                originalLanguage: detectedLanguage,
-                entities: ["market", "economic", "indicators"],
-              },
-            ];
-            setArticles((prev) => [...mockArticles, ...prev]);
+            try {
+              // Read file content (in real app, PDF extraction happens here)
+              const text = await new Promise<string>((resolve) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                  // For demo: treat as text if possible, otherwise generate mock
+                  if (typeof e.target?.result === "string") {
+                    resolve(e.target.result.slice(0, 5000));
+                  } else {
+                    resolve(`Sample newspaper content from ${file.name}. This contains news articles and information about various topics and events.`);
+                  }
+                };
+                reader.onerror = () => resolve(`Content from ${file.name}`);
+                reader.readAsText(file).catch(() => {
+                  resolve(`Sample content from ${file.name}`);
+                });
+              });
+
+              // Extract articles from text
+              const extractedArticles = await extractArticlesFromText(
+                text,
+                file.name,
+                new Date().toISOString().slice(0, 10)
+              );
+
+              // Extract entities from each article
+              const mockArticles: Article[] = [];
+              for (let i = 0; i < extractedArticles.length; i++) {
+                const article = extractedArticles[i];
+                
+                // Extract entities for this article
+                const extraction = await extractEntitiesAndDates(
+                  article.text,
+                  detectedLanguage
+                );
+
+                const artId = `art-${docId}-${i + 1}`;
+                mockArticles.push({
+                  id: artId,
+                  documentId: docId,
+                  headline: article.headline,
+                  date: article.date || new Date().toISOString().slice(0, 10),
+                  source: file.name,
+                  originalText: article.text.slice(0, 1000),
+                  originalLanguage: detectedLanguage,
+                  entities: extraction.entities
+                    .slice(0, 15)
+                    .map((e) => e.name),
+                });
+              }
+
+              setUploadedFiles((prev) =>
+                prev.map((d) =>
+                  d.id === docId
+                    ? {
+                        ...d,
+                        status: "ready",
+                        progress: 100,
+                        language: detectedLanguage,
+                        articleCount: mockArticles.length,
+                      }
+                    : d
+                )
+              );
+
+              setArticles((prev) => [...mockArticles, ...prev]);
+            } catch (error) {
+              console.error("Processing error:", error);
+              const message = error instanceof Error ? error.message : "Processing failed";
+              
+              setUploadedFiles((prev) =>
+                prev.map((d) =>
+                  d.id === docId
+                    ? {
+                        ...d,
+                        status: "failed",
+                        progress: 100,
+                        error: message,
+                      }
+                    : d
+                )
+              );
+            }
           } else {
             setUploadedFiles((prev) =>
               prev.map((d) =>
