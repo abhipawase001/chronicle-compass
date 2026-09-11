@@ -81,14 +81,14 @@ export function NewsProvider({ children }: { children: ReactNode }) {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
-  // Simulate document processing (since we'll have real server functions)
+  // Simulate document processing
   const addFiles = useCallback(async (files: File[]) => {
     setIsUploading(true);
     setUploadError(null);
 
     try {
       for (const file of files) {
-        const docId = `doc-${Date.now()}-${Math.random()}`;
+        const docId = `doc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         
         // Add pending document
         const newDoc: NewsDoc = {
@@ -103,13 +103,21 @@ export function NewsProvider({ children }: { children: ReactNode }) {
         
         setUploadedFiles((prev) => [newDoc, ...prev]);
 
-        // Simulate extraction (in real app, this calls registerDocument + processDocument)
+        // Simulate extraction with progress
         let progress = 0;
         const interval = setInterval(() => {
-          progress += Math.random() * 20;
+          progress += Math.random() * 25;
           if (progress >= 100) {
             progress = 100;
             clearInterval(interval);
+            
+            // Detect language from filename
+            const detectedLanguage = /hindi|हिन्दी|मराठी|marathi|ગુજરાતી|gujarati/i.test(file.name) 
+              ? /मराठी|marathi/i.test(file.name) ? "Marathi"
+              : /hindi|हिन्दी/i.test(file.name) ? "Hindi"
+              : /gujarati|ગુજરાતી/i.test(file.name) ? "Gujarati"
+              : "English"
+              : "English";
             
             setUploadedFiles((prev) =>
               prev.map((d) =>
@@ -118,34 +126,55 @@ export function NewsProvider({ children }: { children: ReactNode }) {
                       ...d,
                       status: "ready",
                       progress: 100,
-                      language: /hindi|हिन्दी/i.test(file.name) ? "Hindi" : "English",
+                      language: detectedLanguage,
+                      articleCount: 3,
                     }
                   : d
               )
             );
             
-            // Simulate articles being added
+            // Simulate articles being extracted
             const mockArticles: Article[] = [
               {
                 id: `art-${docId}-1`,
                 documentId: docId,
-                headline: "Breaking News",
+                headline: "Breaking News Report",
                 date: new Date().toISOString().slice(0, 10),
                 source: file.name,
-                originalText: "This is a sample article extracted from the newspaper.",
-                originalLanguage: "English",
-                entities: ["sample"],
+                originalText: "This is the first article extracted from the newspaper. It contains important information about recent events and developments.",
+                originalLanguage: detectedLanguage,
+                entities: ["news", "report", "events"],
+              },
+              {
+                id: `art-${docId}-2`,
+                documentId: docId,
+                headline: "Analysis and Commentary",
+                date: new Date(Date.now() - 86400000).toISOString().slice(0, 10),
+                source: file.name,
+                originalText: "An in-depth analysis of the current situation with expert commentary and historical context.",
+                originalLanguage: detectedLanguage,
+                entities: ["analysis", "commentary", "expert"],
+              },
+              {
+                id: `art-${docId}-3`,
+                documentId: docId,
+                headline: "Market Updates",
+                date: new Date(Date.now() - 172800000).toISOString().slice(0, 10),
+                source: file.name,
+                originalText: "Latest market data and economic indicators showing significant changes in key sectors.",
+                originalLanguage: detectedLanguage,
+                entities: ["market", "economic", "indicators"],
               },
             ];
             setArticles((prev) => [...mockArticles, ...prev]);
           } else {
             setUploadedFiles((prev) =>
               prev.map((d) =>
-                d.id === docId ? { ...d, status: "extracting", progress } : d
+                d.id === docId ? { ...d, status: "extracting", progress: Math.round(progress) } : d
               )
             );
           }
-        }, 400);
+        }, 300);
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Upload failed";
@@ -168,6 +197,9 @@ export function NewsProvider({ children }: { children: ReactNode }) {
       setSearchQuery(query);
       setSelectedLanguage(language);
 
+      // Simulate search delay
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
       // Filter articles matching the query
       const lower = query.toLowerCase();
       const matching = articles.filter(
@@ -177,16 +209,30 @@ export function NewsProvider({ children }: { children: ReactNode }) {
           a.entities.some((e) => e.toLowerCase().includes(lower))
       );
 
-      // Convert to timeline items (in real app, AI would translate)
-      const results: TimelineItem[] = matching.map((a) => ({
-        id: a.id,
-        date: a.date,
-        source: a.source,
-        headline: a.headline,
-        translatedSummary: `${a.originalText.slice(0, 150)}... (${query})`,
-        originalText: a.originalText,
-        originalLanguage: a.originalLanguage,
-      }));
+      if (matching.length === 0) {
+        setTimelineResults([]);
+        return;
+      }
+
+      // Convert to timeline items with simulated translations
+      const results: TimelineItem[] = matching.map((a) => {
+        // Simple translation simulation based on language
+        let translatedSummary = a.originalText.slice(0, 150);
+        if (language !== "English" && a.originalLanguage !== language) {
+          translatedSummary = `[${language}] ${translatedSummary}`;
+        }
+        translatedSummary += ` ... (Query: "${query}")`;
+
+        return {
+          id: a.id,
+          date: a.date,
+          source: a.source,
+          headline: a.headline,
+          translatedSummary,
+          originalText: a.originalText,
+          originalLanguage: a.originalLanguage,
+        };
+      });
 
       setTimelineResults(results.sort((a, b) => (a.date ?? "").localeCompare(b.date ?? "")));
     } catch (error) {
