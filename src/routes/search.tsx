@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { ArrowDownUp, CalendarDays, FileText, Newspaper, Search } from "lucide-react";
+import { ArrowDownUp, CalendarDays, FileText, Newspaper, Search, Loader2 } from "lucide-react";
+import { useMutation } from "@tanstack/react-query";
 
 import { LanguageModal } from "@/components/language-modal";
 import {
@@ -15,6 +16,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Select,
   SelectContent,
@@ -43,7 +45,8 @@ export const Route = createFileRoute("/search")({
   component: SearchPage,
 });
 
-function formatDate(iso: string) {
+function formatDate(iso: string | null) {
+  if (!iso) return "Unknown date";
   return new Date(iso).toLocaleDateString(undefined, {
     day: "2-digit",
     month: "short",
@@ -52,21 +55,29 @@ function formatDate(iso: string) {
 }
 
 function SearchPage() {
-  const { timelineResults, runSearch, searchQuery, selectedLanguage } = useNews();
+  const { timelineResults, runSearch, searchQuery, selectedLanguage, isSearching, searchError, articles } = useNews();
   const [term, setTerm] = useState(searchQuery);
   const [modalOpen, setModalOpen] = useState(false);
   const [order, setOrder] = useState<"newest" | "oldest">("oldest");
   const [excluded, setExcluded] = useState<string[]>([]);
 
+  const searchMutation = useMutation({
+    mutationFn: async (data: { query: string; language: string }) => {
+      await runSearch(data.query, data.language);
+    },
+  });
+
   const sources = useMemo(
     () => Array.from(new Set(timelineResults.map((r) => r.source))),
-    [timelineResults],
+    [timelineResults]
   );
 
   const visible = useMemo(() => {
     const rows = timelineResults.filter((r) => !excluded.includes(r.source));
     return [...rows].sort((a, b) =>
-      order === "oldest" ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date),
+      order === "oldest"
+        ? (a.date ?? "").localeCompare(b.date ?? "")
+        : (b.date ?? "").localeCompare(a.date ?? "")
     );
   }, [timelineResults, excluded, order]);
 
@@ -74,6 +85,14 @@ function SearchPage() {
     if (!term.trim()) return;
     setModalOpen(true);
   };
+
+  const handleLanguageConfirm = async (language: string) => {
+    await searchMutation.mutateAsync({ query: term.trim(), language });
+    setModalOpen(false);
+  };
+
+  const hasDocuments = articles.length > 0;
+  const isLoading = isSearching || searchMutation.isPending;
 
   return (
     <div className="p-6">
@@ -93,15 +112,52 @@ function SearchPage() {
                 placeholder="Search entities, people, or events..."
                 className="h-12 pl-9 text-base"
                 aria-label="Search entities, people, or events"
+                disabled={isLoading || !hasDocuments}
               />
             </div>
-            <Button size="lg" className="h-12" onClick={submit}>
-              Search
+            <Button 
+              size="lg" 
+              className="h-12" 
+              onClick={submit}
+              disabled={isLoading || !hasDocuments}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  Searching...
+                </>
+              ) : (
+                "Search"
+              )}
             </Button>
           </div>
         </section>
 
-        {timelineResults.length === 0 ? (
+        {!hasDocuments ? (
+          <Card className="border-dashed">
+            <CardContent className="flex flex-col items-center gap-2 py-16 text-center">
+              <Newspaper className="size-8 text-muted-foreground" />
+              <p className="font-medium">No documents uploaded yet</p>
+              <p className="max-w-sm text-sm text-muted-foreground">
+                Upload newspapers on the Ingestion Engine page to start searching.
+              </p>
+            </CardContent>
+          </Card>
+        ) : searchError ? (
+          <Alert variant="destructive">
+            <AlertDescription>{searchError}</AlertDescription>
+          </Alert>
+        ) : timelineResults.length === 0 && searchQuery ? (
+          <Card className="border-dashed">
+            <CardContent className="flex flex-col items-center gap-2 py-16 text-center">
+              <Newspaper className="size-8 text-muted-foreground" />
+              <p className="font-medium">No results found</p>
+              <p className="max-w-sm text-sm text-muted-foreground">
+                Try searching for a different entity or upload more documents.
+              </p>
+            </CardContent>
+          </Card>
+        ) : timelineResults.length === 0 ? (
           <Card className="border-dashed">
             <CardContent className="flex flex-col items-center gap-2 py-16 text-center">
               <Newspaper className="size-8 text-muted-foreground" />
@@ -139,7 +195,7 @@ function SearchPage() {
                         checked={!excluded.includes(s)}
                         onCheckedChange={(c) =>
                           setExcluded((prev) =>
-                            c ? prev.filter((p) => p !== s) : [...prev, s],
+                            c ? prev.filter((p) => p !== s) : [...prev, s]
                           )
                         }
                       />
@@ -174,6 +230,9 @@ function SearchPage() {
                           </Badge>
                           <Badge variant="secondary">{item.originalLanguage}</Badge>
                         </div>
+                        {item.headline && (
+                          <p className="font-medium text-sm">{item.headline}</p>
+                        )}
                         <p className="text-sm leading-relaxed">{item.translatedSummary}</p>
                         <Accordion type="single" collapsible>
                           <AccordionItem value="src" className="border-b-0">
@@ -203,10 +262,7 @@ function SearchPage() {
         open={modalOpen}
         onOpenChange={setModalOpen}
         query={term}
-        onConfirm={(language) => {
-          runSearch(term.trim(), language);
-          setModalOpen(false);
-        }}
+        onConfirm={handleLanguageConfirm}
       />
     </div>
   );
