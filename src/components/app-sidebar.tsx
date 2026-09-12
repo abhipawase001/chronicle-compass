@@ -1,9 +1,11 @@
-import { Link, useRouterState } from "@tanstack/react-router";
-import { Newspaper, Search, Settings, UploadCloud } from "lucide-react";
+import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
+import { LogOut, Newspaper, Search, Settings, UploadCloud } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -12,15 +14,24 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/use-auth";
 
 const items = [
-  { title: "Uploads", url: "/", icon: UploadCloud },
-  { title: "Search Engine", url: "/search", icon: Search },
-  { title: "Settings", url: "/settings", icon: Settings },
-] as const;
+  { title: "Uploads", url: "/" as const, icon: UploadCloud },
+  { title: "Search Engine", url: "/search" as const, icon: Search },
+  { title: "Settings", url: "/settings" as const, icon: Settings },
+];
 
 export function AppSidebar() {
   const currentPath = useRouterState({ select: (r) => r.location.pathname });
+  const navigate = useNavigate();
+  const { user } = useAuth();
+
+  const signOut = async () => {
+    await supabase.auth.signOut();
+    navigate({ to: "/auth" });
+  };
 
   return (
     <Sidebar collapsible="icon">
@@ -42,7 +53,11 @@ export function AppSidebar() {
             <SidebarMenu>
               {items.map((item) => (
                 <SidebarMenuItem key={item.url}>
-                  <SidebarMenuButton asChild isActive={currentPath === item.url} tooltip={item.title}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={currentPath === item.url}
+                    tooltip={item.title}
+                  >
                     <Link to={item.url}>
                       <item.icon />
                       <span>{item.title}</span>
@@ -54,6 +69,16 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      {user && (
+        <SidebarFooter className="border-t border-sidebar-border">
+          <div className="space-y-2 p-2 group-data-[collapsible=icon]:hidden">
+            <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+            <Button variant="outline" size="sm" className="w-full" onClick={signOut}>
+              <LogOut className="size-4" /> Sign out
+            </Button>
+          </div>
+        </SidebarFooter>
+      )}
     </Sidebar>
   );
 }

@@ -9,7 +9,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -74,15 +73,6 @@ function AuthPage() {
     }
   };
 
-  const google = async () => {
-    setError(null);
-    try {
-      await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Google sign-in failed");
-    }
-  };
-
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-6">
       <Card className="w-full max-w-md">
@@ -106,14 +96,6 @@ function AuthPage() {
               <AlertDescription>{notice}</AlertDescription>
             </Alert>
           )}
-
-          <Button variant="outline" className="w-full" onClick={google} disabled={busy}>
-            Continue with Google
-          </Button>
-
-          <div className="relative text-center text-xs text-muted-foreground">
-            <span className="bg-card px-2">or use email</span>
-          </div>
 
           <Tabs defaultValue="signin">
             <TabsList className="grid w-full grid-cols-2">
