@@ -23,7 +23,7 @@ function friendly(status: number, message: string) {
 export async function aiJson<T>({
   system,
   parts,
-  model = "google/gemini-3.5-sonnet",
+  model = "google/gemini-3.8-flash",
 }: {
   system: string;
   parts: Part[];
@@ -79,7 +79,7 @@ export async function aiJson<T>({
 export async function aiText({
   system,
   parts,
-  model = "google/gemini-3.5-sonnet",
+  model = "google/gemini-3.8-flash",
 }: {
   system: string;
   parts: Part[];
