@@ -47,9 +47,11 @@ export const updateArticleEntities = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const patch: Record<string, unknown> = { entities: data.entities };
-    if (data.headline !== undefined) patch['headline'] = data.headline;
-    if (data.articleDate !== undefined) patch['article_date'] = data.articleDate || null;
+    const patch = {
+      entities: data.entities,
+      ...(data.headline !== undefined ? { headline: data.headline } : {}),
+      ...(data.articleDate !== undefined ? { article_date: data.articleDate || null } : {}),
+    };
 
     const { error } = await context.supabase
       .from("articles")
